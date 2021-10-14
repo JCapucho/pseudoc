@@ -1,0 +1,11 @@
+[package]
+name = "pseudoc"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+logos = "0.12.0"
+lasso = "0.6.0"
+fxhash = "0.2.1"
+argh = "0.1.6"
+codespan-reporting = "0.11.1"
