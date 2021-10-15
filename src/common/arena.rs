@@ -85,7 +85,7 @@ impl<T> Handle<T> {
     }
 
     /// Convert a `usize` index into a `Handle<T>`, without range checks.
-    unsafe fn from_usize_unchecked(index: usize) -> Self {
+    pub unsafe fn from_usize_unchecked(index: usize) -> Self {
         Handle::new(Index::new_unchecked((index + 1) as u32))
     }
 }
@@ -121,12 +121,6 @@ impl<T> Arena<T> {
         }
     }
 
-    /// Extracts the inner vector.
-    pub fn into_inner(self) -> Vec<T> { self.data }
-
-    /// Returns the current number of items stored in this arena.
-    pub fn len(&self) -> usize { self.data.len() }
-
     /// Returns `true` if the arena contains no elements.
     pub fn is_empty(&self) -> bool { self.data.is_empty() }
 
@@ -139,15 +133,6 @@ impl<T> Arena<T> {
             .map(|(i, v)| unsafe { (Handle::from_usize_unchecked(i), v) })
     }
 
-    /// Returns a iterator over the items stored in this arena,
-    /// returning both the item's handle and a mutable reference to it.
-    pub fn iter_mut(&mut self) -> impl DoubleEndedIterator<Item = (Handle<T>, &mut T)> {
-        self.data
-            .iter_mut()
-            .enumerate()
-            .map(|(i, v)| unsafe { (Handle::from_usize_unchecked(i), v) })
-    }
-
     /// Adds a new value to the arena, returning a typed handle.
     pub fn append(&mut self, value: T, span: Span) -> Handle<T> {
         let index = self.data.len();
@@ -155,43 +140,6 @@ impl<T> Arena<T> {
         self.span_info.push(span);
         unsafe { Handle::from_usize_unchecked(index) }
     }
-
-    /// Fetch a handle to an existing type.
-    pub fn fetch_if<F: Fn(&T) -> bool>(&self, fun: F) -> Option<Handle<T>> {
-        self.data
-            .iter()
-            .position(fun)
-            .map(|index| unsafe { Handle::from_usize_unchecked(index) })
-    }
-
-    /// Adds a value with a custom check for uniqueness:
-    /// returns a handle pointing to
-    /// an existing element if the check succeeds, or adds a new
-    /// element otherwise.
-    pub fn fetch_if_or_append<F: Fn(&T, &T) -> bool>(
-        &mut self,
-        value: T,
-        span: Span,
-        fun: F,
-    ) -> Handle<T> {
-        if let Some(index) = self.data.iter().position(|d| fun(d, &value)) {
-            unsafe { Handle::from_usize_unchecked(index) }
-        } else {
-            self.append(value, span)
-        }
-    }
-
-    /// Adds a value with a check for uniqueness, where the check is plain
-    /// comparison.
-    pub fn fetch_or_append(&mut self, value: T, span: Span) -> Handle<T>
-    where
-        T: PartialEq,
-    {
-        self.fetch_if_or_append(value, span, T::eq)
-    }
-
-    /// Clears the arena keeping all allocations
-    pub fn clear(&mut self) { self.data.clear() }
 
     pub fn get_span(&self, handle: Handle<T>) -> Span {
         *self.span_info.get(handle.index()).unwrap_or(&Span::none())

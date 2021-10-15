@@ -1,4 +1,4 @@
-use crate::common::{PrimitiveType, Rodeo, RodeoResolver, Symbol};
+use crate::common::{Rodeo, RodeoResolver, Symbol};
 use logos::{Lexer as LogosLexer, Logos};
 use std::fmt;
 

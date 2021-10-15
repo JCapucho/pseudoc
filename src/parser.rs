@@ -10,7 +10,7 @@ use crate::{
     lexer::{Lexer, Token},
 };
 
-pub struct BlockContext<'function> {
+struct BlockContext<'function> {
     expressions: &'function mut ExprArena,
     locals: &'function mut Arena<Local>,
     scope: FastHashMap<Symbol, Handle<Local>>,
@@ -81,7 +81,7 @@ impl<'source> Parser<'source> {
             None => {
                 let span = self.lexer.span().into();
                 if !self.eof {
-                    self.errors.push(Error::eof(Span::from(span)));
+                    self.errors.push(Error::eof(span));
                     self.eof = true;
                 }
 
@@ -218,6 +218,7 @@ impl<'source> Parser<'source> {
                         stmts.append(Stmt::LocalInit(local, init), span);
                     }
                 },
+                Token::If => self.parse_if(ctx, &mut stmts),
                 _ => {
                     let expr = self.expression(ctx, 0);
                     let span = ctx.expressions.get_span(expr);
@@ -228,6 +229,59 @@ impl<'source> Parser<'source> {
         }
 
         Block { stmts, span }
+    }
+
+    fn parse_if(&mut self, ctx: &mut BlockContext, stmts: &mut Arena<Stmt>) {
+        let mut span = self.bump().1;
+        let condition = self.expression(ctx, 0);
+
+        let boolean = self.inference.insert(TypeData::Bool, Span::None);
+        self.inference
+            .unify(boolean, ctx.expressions.get_type(condition));
+
+        let brace_span = self.expect(Token::OpenCurlyBraces);
+        let accept = self.block(ctx, brace_span);
+        let mut reject = Block {
+            stmts: Arena::new(),
+            span: Span::None,
+        };
+        let mut else_ifs = Vec::new();
+
+        loop {
+            if let Token::Else = self.expect_peek().0 {
+                self.bump();
+                if let Token::If = self.expect_peek().0 {
+                    self.bump();
+                    let condition = self.expression(ctx, 0);
+
+                    self.inference
+                        .unify(boolean, ctx.expressions.get_type(condition));
+
+                    let brace_span = self.expect(Token::OpenCurlyBraces);
+                    let block = self.block(ctx, brace_span);
+
+                    else_ifs.push(ElseIf { condition, block });
+
+                    continue;
+                } else {
+                    let span = self.expect(Token::OpenCurlyBraces);
+                    reject = self.block(ctx, span);
+                }
+            }
+
+            break;
+        }
+
+        span = span.union(reject.span);
+        stmts.append(
+            Stmt::If {
+                condition,
+                accept,
+                else_ifs,
+                reject,
+            },
+            span,
+        );
     }
 
     fn atom_expression(&mut self, ctx: &mut BlockContext) -> Handle<Expr> {
@@ -277,9 +331,10 @@ impl<'source> Parser<'source> {
             },
             Token::In => {
                 let unit = self.inference.insert(TypeData::Unit, Span::None);
+                let top = self.inference.insert(TypeData::Top, Span::None);
                 let ty = self
                     .inference
-                    .insert(TypeData::Fn(unit, vec![], true), span);
+                    .insert(TypeData::Fn(unit, vec![top], false), span);
                 (Expr::Intrisinc(Intrisinc::In), ty)
             },
             Token::Out => {
@@ -360,10 +415,9 @@ impl<'source> Parser<'source> {
                     let fun_ty = ctx.expressions.get_type(lhs);
                     let ty = self.inference.call(
                         fun_ty,
-                        &args
-                            .iter()
+                        args.iter()
                             .map(|&handle| ctx.expressions.get_type(handle))
-                            .collect::<Vec<_>>(),
+                            .collect(),
                         span,
                     );
 

@@ -85,7 +85,6 @@ fn main() {
                 &err.codespan_diagnostic(file_id, &resolver),
             )
             .expect("Failed to output error");
-            return;
         },
     };
 }

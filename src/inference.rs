@@ -48,15 +48,36 @@ impl Inference {
             (TypeData::Int, TypeData::Number) | (TypeData::Float, TypeData::Number) => {
                 self.link(a, b)
             },
+            (
+                &TypeData::Fn(a_ret, ref a_args, a_varargs),
+                &TypeData::Fn(b_ret, ref b_args, b_varargs),
+            ) => {
+                let a_args = a_args.clone();
+                let b_args = b_args.clone();
+
+                self.unify(a_ret, b_ret);
+                for (&a_arg, &b_arg) in a_args.iter().zip(b_args.iter()) {
+                    self.unify(a_arg, b_arg);
+                }
+
+                if a_args.len() != b_args.len() && !a_varargs && !b_varargs {
+                    self.errors.push(
+                        Error::custom(format!(
+                            "Function A takes {} arguments but function B takes {}",
+                            a_args.len(),
+                            b_args.len()
+                        ))
+                        .with_span(self.data.get_span(a))
+                        .with_span(self.data.get_span(b)),
+                    );
+                }
+            },
             (a, b) if a == b => {},
             (_, TypeData::Error) | (TypeData::Error, _) => {
                 self.data[a] = TypeData::Error;
                 self.data[b] = TypeData::Error;
             },
             _ => {
-                self.data[a] = TypeData::Error;
-                self.data[b] = TypeData::Error;
-
                 self.errors.push(
                     Error::custom(format!(
                         "Types {:?} and {:?} don't match up",
@@ -64,7 +85,10 @@ impl Inference {
                     ))
                     .with_span(self.data.get_span(a))
                     .with_span(self.data.get_span(b)),
-                )
+                );
+
+                self.data[a] = TypeData::Error;
+                self.data[b] = TypeData::Error;
             },
         }
     }
@@ -96,10 +120,8 @@ impl Inference {
                 boolean
             },
             BinaryOp::Inequality | BinaryOp::Equality => {
-                let ty = self.insert(TypeData::Top, span);
                 self.unify(a, b);
-                self.unify(a, ty);
-                ty
+                self.insert(TypeData::Bool, span)
             },
             BinaryOp::Addition
             | BinaryOp::Subtraction
@@ -129,55 +151,15 @@ impl Inference {
     }
 
     #[must_use]
-    fn get(&mut self, handle: Handle<TypeData>) -> Handle<TypeData> {
-        let mut base = handle;
-        loop {
-            match self.data[base] {
-                TypeData::Ref(inner) => base = inner,
-                _ => break,
-            }
-        }
-        base
-    }
-
-    #[must_use]
     pub fn call(
         &mut self,
         fun: Handle<TypeData>,
-        args: &[Handle<TypeData>],
+        args: Vec<Handle<TypeData>>,
         span: Span,
     ) -> Handle<TypeData> {
-        let base = self.get(fun);
-        let (res, def_args, varargs) = match self.data[fun] {
-            TypeData::Fn(res, ref args, varargs) => (res, args.clone(), varargs),
-            TypeData::Error => (fun, vec![], true),
-            _ => {
-                let res = self.insert(TypeData::Error, Span::None);
-                self.errors.push(
-                    Error::custom(format!("{:#?} isn't a function", self.data[base]))
-                        .with_span(self.data.get_span(fun)),
-                );
-                (res, vec![], true)
-            },
-        };
-
-        if args.len() != def_args.len() && !varargs {
-            self.errors.push(
-                Error::custom(format!(
-                    "The function takes {} arguments, but {} where provided",
-                    def_args.len(),
-                    args.len()
-                ))
-                .with_span(span),
-            );
-        }
-
-        for (&call, def) in args.iter().zip(def_args.into_iter()) {
-            self.unify(call, def)
-        }
-
         let ty = self.insert(TypeData::Top, span);
-        self.link(res, ty);
+        let fn_call = self.insert(TypeData::Fn(ty, args, false), span);
+        self.unify(fn_call, fun);
         ty
     }
 

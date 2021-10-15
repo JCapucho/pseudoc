@@ -29,6 +29,18 @@ pub struct Block {
 pub enum Stmt {
     Expr(Handle<Expr>),
     LocalInit(Handle<Local>, Handle<Expr>),
+    If {
+        condition: Handle<Expr>,
+        accept: Block,
+        else_ifs: Vec<ElseIf>,
+        reject: Block,
+    },
+}
+
+#[derive(Debug)]
+pub struct ElseIf {
+    pub condition: Handle<Expr>,
+    pub block: Block,
 }
 
 #[derive(Debug)]
@@ -61,12 +73,6 @@ pub enum Expr {
     Literal(Literal),
     Intrisinc(Intrisinc),
     Variable(Handle<Local>),
-    If {
-        condition: Handle<Expr>,
-        accept: Block,
-        else_ifs: Vec<ElseIf>,
-        reject: Option<Block>,
-    },
     Error,
 }
 
@@ -74,13 +80,6 @@ pub enum Expr {
 pub enum Intrisinc {
     In,
     Out,
-}
-
-#[derive(Debug)]
-pub struct ElseIf {
-    pub expr: Handle<Expr>,
-    pub block: Block,
-    pub span: Span,
 }
 
 #[derive(Debug, Default)]
