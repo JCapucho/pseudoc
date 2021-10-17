@@ -66,3 +66,7 @@ impl<T: Eq> Eq for Spanned<T> {}
 impl<T: fmt::Display> fmt::Display for Spanned<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.node.fmt(f) }
 }
+
+impl Default for Span {
+    fn default() -> Self { Span::None }
+}

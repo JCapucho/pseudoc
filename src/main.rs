@@ -12,13 +12,14 @@ use codespan_reporting::{
         termcolor::{ColorChoice, StandardStream},
     },
 };
+use std::path::PathBuf;
 
 /// Translate pseudoc
 #[derive(FromArgs)]
 struct Arguments {
     /// pseudoc file to translate
     #[argh(positional)]
-    input: String,
+    input: PathBuf,
     /// pseudoc file to output to, if none is provided stdout is used
     #[argh(positional)]
     output: Option<String>,
@@ -30,7 +31,7 @@ fn main() {
 
     let mut files = SimpleFiles::new();
 
-    let file_id = files.add(args.input, &input);
+    let file_id = files.add(args.input.to_string_lossy(), &input);
 
     let mut rodeo = common::Rodeo::with_hasher(Default::default());
     let lexer = lexer::Lexer::with_extras(&input, &mut rodeo);
@@ -58,7 +59,7 @@ fn main() {
     };
 
     let mut stdout = std::io::stdout();
-    let mut maybe_file = args.output.map(|path| {
+    let mut maybe_file = args.output.as_ref().map(|path| {
         std::fs::OpenOptions::new()
             .write(true)
             .truncate(true)
@@ -71,8 +72,15 @@ fn main() {
         None => &mut stdout,
     };
 
-    let mut backend = backend::PseudoBackend::new(&parse_data, &resolver, sink);
-    match backend.emit() {
+    let default_name = args
+        .input
+        .file_stem()
+        .map(|val| val.to_string_lossy())
+        .or_else(|| args.input.file_name().map(|val| val.to_string_lossy()))
+        .unwrap_or_else(|| args.input.to_string_lossy());
+
+    let mut backend = backend::pseudo::PseudoBackend::new(&parse_data, &resolver, sink);
+    match backend.emit(&default_name) {
         Ok(_) => {},
         Err(err) => {
             let writer = StandardStream::stderr(ColorChoice::Always);

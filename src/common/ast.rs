@@ -7,19 +7,16 @@ use super::{
 };
 
 #[derive(Debug)]
-pub enum Item {
-    Entry(Entry),
-}
+pub enum Item {}
 
-#[derive(Debug)]
-pub struct Entry {
-    pub ident: Ident,
+#[derive(Debug, Default)]
+pub struct MainBlock {
     pub block: Block,
     pub expressions: ExprArena,
     pub locals: Arena<Local>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Block {
     pub stmts: Arena<Stmt>,
     pub span: Span,

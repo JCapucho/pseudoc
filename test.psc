@@ -1,5 +1,7 @@
 // This is a test file for pseudoc
-entry soma {
+program soma;
+
+body {
     let a: int; 
     Out("Inserir A");
     In(a);

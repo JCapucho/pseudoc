@@ -17,6 +17,8 @@ struct BlockContext<'function> {
 }
 
 pub struct ParseResult {
+    pub name: Option<Ident>,
+    pub main_block: MainBlock,
     pub items: Vec<Item>,
     pub inference: Inference,
 }
@@ -29,6 +31,9 @@ pub struct Parser<'source> {
     eof: bool,
     bad_symbol: Symbol,
 
+    name: Option<(Ident, Span)>,
+    main_block: Option<(MainBlock, Span)>,
+
     inference: Inference,
 }
 
@@ -38,9 +43,14 @@ impl<'source> Parser<'source> {
         Parser {
             lexer,
             lookahead: None,
+
             errors: Vec::new(),
             eof: false,
             bad_symbol,
+
+            name: None,
+            main_block: None,
+
             inference: Inference::default(),
         }
     }
@@ -116,11 +126,25 @@ impl<'source> Parser<'source> {
 
         while let Some((token, span)) = self.next() {
             match token {
-                Token::Entry => {
+                Token::Program => {
                     let ident = self.ident();
+                    let end_span = self.expect(Token::SemiColon);
+
+                    let span = span.union(end_span);
+                    if let Some(&(_, old_span)) = self.name.as_ref() {
+                        self.errors.push(
+                            Error::custom(String::from("Program name already define"))
+                                .with_span(span)
+                                .with_span(old_span),
+                        );
+                    }
+                    self.name = Some((ident, span));
+                },
+                Token::Body => {
+                    let start = self.expect(Token::OpenCurlyBraces);
+
                     let mut expressions = ExprArena::default();
                     let mut locals = Arena::new();
-                    let start = self.expect(Token::OpenCurlyBraces);
                     let mut ctx = BlockContext {
                         expressions: &mut expressions,
                         locals: &mut locals,
@@ -128,12 +152,22 @@ impl<'source> Parser<'source> {
                     };
                     let block = self.block(&mut ctx, start);
 
-                    items.push(Item::Entry(Entry {
-                        ident,
-                        block,
-                        expressions,
-                        locals,
-                    }));
+                    if let Some(&(_, old_span)) = self.main_block.as_ref() {
+                        self.errors.push(
+                            Error::custom(String::from("Main block already defined"))
+                                .with_span(span)
+                                .with_span(old_span),
+                        );
+                    }
+
+                    self.main_block = Some((
+                        MainBlock {
+                            block,
+                            expressions,
+                            locals,
+                        },
+                        span,
+                    ));
                 },
                 Token::Error => {},
                 _ => {
@@ -146,7 +180,9 @@ impl<'source> Parser<'source> {
 
         if self.errors.is_empty() {
             Ok(ParseResult {
+                name: self.name.map(|(name, _)| name),
                 items,
+                main_block: self.main_block.map(|(main, _)| main).unwrap_or_default(),
                 inference: self.inference,
             })
         } else {

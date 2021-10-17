@@ -58,8 +58,10 @@ pub enum Token {
     #[token("string")]
     String,
 
-    #[token("entry")]
-    Entry,
+    #[token("program")]
+    Program,
+    #[token("body")]
+    Body,
     #[token("let")]
     Let,
     #[token("const")]
@@ -167,7 +169,8 @@ impl Token {
                     Token::Bool => write!(f, "bool"),
                     Token::String => write!(f, "string"),
 
-                    Token::Entry => write!(f, "entry"),
+                    Token::Program => write!(f, "program"),
+                    Token::Body => write!(f, "body"),
                     Token::Const => write!(f, "const"),
                     Token::Fn => write!(f, "fn"),
                     Token::Return => write!(f, "return"),
