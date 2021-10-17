@@ -8,12 +8,15 @@ body {
     let b: int;
     Out("Inserir B");
     In(b);
-    let soma = a + b;
-    Out("A soma de a + b é ", soma);
+    let total = a + b;
+    Out("A soma de a + b é ", total);
 
     if a == 1 {
         Out("A é igual a 1");
     } else if a == 2 {
+        if true {
+            Out("Obamaprisma");
+        }
         Out("A é igual a 2");
     } else if a == 3 {
         Out("A é igual a 3");
@@ -21,4 +24,5 @@ body {
         a = 1;
         Out("A é igual a 1 >:)");
     }
+    Out("Podes ignorar isto");
 }

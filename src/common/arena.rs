@@ -121,6 +121,8 @@ impl<T> Arena<T> {
         }
     }
 
+    pub fn len(&self) -> usize { self.data.len() }
+
     /// Returns `true` if the arena contains no elements.
     pub fn is_empty(&self) -> bool { self.data.is_empty() }
 

@@ -1,4 +1,5 @@
 use crate::{
+    backend::IDENTATION,
     common::{
         arena::{Arena, Handle},
         ast::{Block, Expr, ExprArena, Intrisinc, Local, Stmt},
@@ -10,30 +11,34 @@ use crate::{
 use lasso::RodeoResolver;
 use std::io::Write;
 
-const IDENTATION: &str = "    ";
+use super::Config;
 
 struct BlockContext<'source> {
     expressions: &'source ExprArena,
     locals: &'source Arena<Local>,
 }
 
-pub struct PseudoBackend<'source, 'out> {
+pub struct PseudoBackend<'source, 'out, 'config> {
     parse: &'source ParseResult,
     resolver: &'source RodeoResolver,
+
+    config: &'config Config<'config>,
 
     indentation: usize,
     sink: &'out mut dyn Write,
 }
 
-impl<'source, 'out> PseudoBackend<'source, 'out> {
+impl<'source, 'out, 'config> PseudoBackend<'source, 'out, 'config> {
     pub fn new(
         parse: &'source ParseResult,
         resolver: &'source RodeoResolver,
+        config: &'config Config<'config>,
         sink: &'out mut dyn Write,
     ) -> Self {
         PseudoBackend {
             parse,
             resolver,
+            config,
             indentation: 0,
             sink,
         }
@@ -45,7 +50,7 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
             .name
             .map(|ident| self.resolver.resolve(&ident))
             .unwrap_or(default_name);
-        writeln!(self.sink, "Algoritmo {};", name)?;
+        writeln!(self.sink, "{} {};", self.config.program, name)?;
 
         for item in self.parse.items.iter() {
             // TODO
@@ -53,7 +58,7 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
         }
 
         if !self.parse.main_block.locals.is_empty() {
-            writeln!(self.sink, "Variável")?;
+            writeln!(self.sink, "{}", self.config.variable)?;
             for (_, local) in self.parse.main_block.locals.iter() {
                 let name = self.resolver.resolve(&local.ident);
                 write!(self.sink, "{}{}: ", IDENTATION, name)?;
@@ -63,15 +68,14 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
             }
         }
 
-        writeln!(self.sink, "Início")?;
-
         let mut ctx = BlockContext {
             expressions: &self.parse.main_block.expressions,
             locals: &self.parse.main_block.locals,
         };
-        self.emit_block(&mut ctx, &self.parse.main_block.block)?;
 
-        writeln!(self.sink, "Fim.")?;
+        writeln!(self.sink, "{}", self.config.begin)?;
+        self.emit_block(&mut ctx, &self.parse.main_block.block)?;
+        writeln!(self.sink, "{}.", self.config.end)?;
 
         Ok(())
     }
@@ -82,13 +86,17 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
         for (_, stmt) in block.stmts.iter() {
             write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
             match *stmt {
-                Stmt::Expr(expr) => self.emit_expression(ctx, expr)?,
+                Stmt::Expr(expr) => {
+                    self.emit_expression(ctx, expr)?;
+                    writeln!(self.sink, ";")?
+                },
                 Stmt::LocalInit(local, init) => {
                     let symbol = &ctx.locals[local].ident;
                     let name = self.resolver.resolve(symbol);
 
-                    write!(self.sink, "{} 🠔 ", name)?;
-                    self.emit_expression(ctx, init)?
+                    write!(self.sink, "{} {} ", name, self.config.assign)?;
+                    self.emit_expression(ctx, init)?;
+                    writeln!(self.sink, ";")?
                 },
                 Stmt::If {
                     condition,
@@ -96,33 +104,52 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
                     ref else_ifs,
                     ref reject,
                 } => {
-                    write!(self.sink, "Se ")?;
+                    write!(self.sink, "{} ", self.config.if_kw)?;
                     self.emit_expression(ctx, condition)?;
 
-                    writeln!(self.sink, " Então")?;
-                    self.emit_block(ctx, accept)?;
-
-                    write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
-                    write!(self.sink, "Senão ")?;
-
-                    for else_if in else_ifs.iter() {
-                        write!(self.sink, "Se ")?;
-                        self.emit_expression(ctx, else_if.condition)?;
-                        writeln!(self.sink, " Então")?;
-                        self.emit_block(ctx, &else_if.block)?;
-                        write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
-                        write!(self.sink, "Senão ")?;
+                    writeln!(self.sink, " {}", self.config.then_kw)?;
+                    if self.config.pascal {
+                        self.emit_block_delimited(ctx, accept)?;
+                        if reject.stmts.is_empty() {
+                            writeln!(self.sink, ";")?;
+                        } else {
+                            writeln!(self.sink)?;
+                        }
+                    } else {
+                        self.emit_block(ctx, accept)?;
                     }
 
-                    writeln!(self.sink)?;
+                    for else_if in else_ifs.iter() {
+                        write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
+                        write!(self.sink, "{} {} ", self.config.else_kw, self.config.if_kw)?;
+                        self.emit_expression(ctx, else_if.condition)?;
+                        writeln!(self.sink, " {}", self.config.then_kw)?;
+                        if self.config.pascal {
+                            self.emit_block_delimited(ctx, &else_if.block)?;
+                            writeln!(self.sink)?;
+                        } else {
+                            self.emit_block(ctx, &else_if.block)?;
+                        }
+                    }
 
-                    self.emit_block(ctx, reject)?;
+                    if !reject.stmts.is_empty() {
+                        write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
+                        writeln!(self.sink, "{}", self.config.else_kw)?;
+                        if self.config.pascal {
+                            self.emit_block_delimited(ctx, reject)?;
+                            writeln!(self.sink, ";")?;
+                        } else {
+                            self.emit_block(ctx, reject)?;
+                        }
+                    }
 
-                    write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
-                    write!(self.sink, "FimSe")?;
+                    if !self.config.pascal {
+                        write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
+                        write!(self.sink, "{}", self.config.endif_kw)?;
+                        writeln!(self.sink, ";")?;
+                    }
                 },
             }
-            writeln!(self.sink, ";")?;
         }
 
         self.indentation -= 1;
@@ -130,13 +157,23 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
         Ok(())
     }
 
+    fn emit_block_delimited(&mut self, ctx: &mut BlockContext, block: &Block) -> Result<(), Error> {
+        write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
+        writeln!(self.sink, "{}", self.config.begin)?;
+        self.emit_block(ctx, block)?;
+        write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
+        write!(self.sink, "{}", self.config.end)?;
+
+        Ok(())
+    }
+
     fn emit_type(&mut self, ty: Ty) -> Result<(), Error> {
         match ty {
             Ty::Primitive(primitive) => write!(self.sink, "{}", match primitive {
-                PrimitiveType::Int => "inteiro",
-                PrimitiveType::Float => "real",
-                PrimitiveType::Bool => "booleano",
-                PrimitiveType::String => "texto",
+                PrimitiveType::Int => self.config.int,
+                PrimitiveType::Float => self.config.float,
+                PrimitiveType::Bool => self.config.boolean,
+                PrimitiveType::String => self.config.string,
             })?,
         }
 
@@ -196,7 +233,7 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
                 },
                 Expr::Assignment { lhs, rhs } => {
                     self.emit_expression(ctx, lhs)?;
-                    write!(self.sink, " 🠔 ")?;
+                    write!(self.sink, " {} ", self.config.assign)?;
                     next = rhs;
                     continue;
                 },
@@ -204,6 +241,9 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
                     Literal::Int(value) => write!(self.sink, "{}", value),
                     Literal::Float(value) => write!(self.sink, "{}", value),
                     Literal::Boolean(value) => write!(self.sink, "{}", value),
+                    Literal::String(ref value) if self.config.pascal => {
+                        write!(self.sink, "{}", value.replace("\"", "'"))
+                    },
                     Literal::String(ref value) => write!(self.sink, "{}", value),
                 }?,
                 Expr::Variable(local) => {
@@ -212,8 +252,8 @@ impl<'source, 'out> PseudoBackend<'source, 'out> {
                     write!(self.sink, "{}", name)?;
                 },
                 Expr::Intrisinc(intrisinc) => match intrisinc {
-                    Intrisinc::In => write!(self.sink, "Ler")?,
-                    Intrisinc::Out => write!(self.sink, "Escrever")?,
+                    Intrisinc::In => write!(self.sink, "{}", self.config.input)?,
+                    Intrisinc::Out => write!(self.sink, "{}", self.config.output)?,
                 },
                 Expr::Error => unreachable!(),
             }

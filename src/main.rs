@@ -20,9 +20,12 @@ struct Arguments {
     /// pseudoc file to translate
     #[argh(positional)]
     input: PathBuf,
-    /// pseudoc file to output to, if none is provided stdout is used
+    /// pseudoc file to output to, if none is provided stdout is used.
+    ///
+    /// The type to output is guessed from the file extension otherwise
+    /// pseudo is used as a default
     #[argh(positional)]
-    output: Option<String>,
+    output: Option<PathBuf>,
 }
 
 fn main() {
@@ -58,6 +61,31 @@ fn main() {
         },
     };
 
+    let default_name = args
+        .input
+        .file_stem()
+        .map(|val| val.to_string_lossy())
+        .or_else(|| args.input.file_name().map(|val| val.to_string_lossy()))
+        .unwrap_or_else(|| args.input.to_string_lossy());
+
+    #[derive(Debug, PartialEq, Eq)]
+    enum Backend {
+        Pseudo,
+        Pascal,
+        Dot,
+    }
+
+    let backend = args
+        .output
+        .as_ref()
+        .and_then(|f| f.extension())
+        .map(|val| match &*val.to_string_lossy() {
+            "dot" => Backend::Dot,
+            "pas" => Backend::Pascal,
+            _ => Backend::Pseudo,
+        })
+        .unwrap_or(Backend::Pseudo);
+
     let mut stdout = std::io::stdout();
     let mut maybe_file = args.output.as_ref().map(|path| {
         std::fs::OpenOptions::new()
@@ -72,15 +100,26 @@ fn main() {
         None => &mut stdout,
     };
 
-    let default_name = args
-        .input
-        .file_stem()
-        .map(|val| val.to_string_lossy())
-        .or_else(|| args.input.file_name().map(|val| val.to_string_lossy()))
-        .unwrap_or_else(|| args.input.to_string_lossy());
+    let result = match backend {
+        Backend::Pseudo => {
+            let config = backend::Config::default();
+            let mut backend =
+                backend::pseudo::PseudoBackend::new(&parse_data, &resolver, &config, sink);
+            backend.emit(&default_name)
+        },
+        Backend::Pascal => {
+            let config = backend::Config::pascal();
+            let mut backend =
+                backend::pseudo::PseudoBackend::new(&parse_data, &resolver, &config, sink);
+            backend.emit(&default_name)
+        },
+        Backend::Dot => {
+            let mut backend = backend::dot::DotBackend::new(&parse_data, &resolver, sink);
+            backend.emit()
+        },
+    };
 
-    let mut backend = backend::pseudo::PseudoBackend::new(&parse_data, &resolver, sink);
-    match backend.emit(&default_name) {
+    match result {
         Ok(_) => {},
         Err(err) => {
             let writer = StandardStream::stderr(ColorChoice::Always);
@@ -94,5 +133,5 @@ fn main() {
             )
             .expect("Failed to output error");
         },
-    };
+    }
 }

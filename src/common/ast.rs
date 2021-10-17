@@ -1,10 +1,9 @@
-use crate::inference::TypeData;
-
 use super::{
     arena::{Arena, Handle},
     src::Span,
     BinaryOp, Ident, Literal, UnaryOp,
 };
+use crate::inference::TypeData;
 
 #[derive(Debug)]
 pub enum Item {}
