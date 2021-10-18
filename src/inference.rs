@@ -172,12 +172,12 @@ impl Inference {
     pub fn realize(&self, ty: Handle<TypeData>) -> Result<Ty, Error> {
         debug_assert!(self.errors.is_empty());
         match self.data[ty] {
-            TypeData::Number | TypeData::Top => Err(Error::custom(String::from(
+            TypeData::Top => Err(Error::custom(String::from(
                 "Not enough information to infer type",
             ))
             .with_span(self.data.get_span(ty))),
             TypeData::Ref(inner) => self.realize(inner),
-            TypeData::Int => Ok(Ty::Primitive(PrimitiveType::Int)),
+            TypeData::Number | TypeData::Int => Ok(Ty::Primitive(PrimitiveType::Int)),
             TypeData::Float => Ok(Ty::Primitive(PrimitiveType::Float)),
             TypeData::Bool => Ok(Ty::Primitive(PrimitiveType::Bool)),
             TypeData::String => Ok(Ty::Primitive(PrimitiveType::String)),

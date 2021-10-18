@@ -364,7 +364,7 @@ impl<'source> Parser<'source> {
                 (Expr::Literal(Literal::Float(value)), float)
             },
             Token::IntLiteral(value) => {
-                let int = self.inference.insert(TypeData::Int, span);
+                let int = self.inference.insert(TypeData::Number, span);
                 (Expr::Literal(Literal::Int(value)), int)
             },
             Token::BoolLiteral(value) => {
