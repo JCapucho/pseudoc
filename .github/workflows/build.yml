@@ -13,7 +13,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
 
-      - name: Build
+      - name: Test
         uses: actions-rs/cargo@v1
         with:
           command: test
@@ -42,12 +42,12 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v2
         with:
-          name: pseudoc.exe
+          name: pseudoc-win64
           path: target/release/pseudoc.exe
 
       - name: Archive binary
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v2
         with:
-          name: pseudoc
+          name: pseudoc-linux
           path: target/release/pseudoc
