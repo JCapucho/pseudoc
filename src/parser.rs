@@ -30,6 +30,7 @@ pub struct Parser<'source> {
     errors: Vec<Error>,
     eof: bool,
     bad_symbol: Symbol,
+    bad_expect: bool,
 
     name: Option<(Ident, Span)>,
     main_block: Option<(MainBlock, Span)>,
@@ -47,6 +48,7 @@ impl<'source> Parser<'source> {
             errors: Vec::new(),
             eof: false,
             bad_symbol,
+            bad_expect: false,
 
             name: None,
             main_block: None,
@@ -101,10 +103,20 @@ impl<'source> Parser<'source> {
     }
 
     fn expect(&mut self, expected: Token) -> Span {
-        let (token, span) = self.bump();
-        if token != expected && token != Token::Error {
-            self.errors.push(Error::unexpected_token(token, span))
-        }
+        let &(ref token, span) = self.expect_peek();
+        if *token != expected && *token != Token::Error {
+            let token = token.clone();
+            if !self.bad_expect {
+                self.errors.push(
+                    Error::unexpected_token(token, span)
+                        .with_hint(format!("Expected a {:?}", expected)),
+                )
+            }
+            self.bad_expect = true;
+        } else {
+            self.bump();
+            self.bad_expect = false;
+        };
         span
     }
 
@@ -114,7 +126,10 @@ impl<'source> Parser<'source> {
             Token::Identifier(symbol) => symbol,
             Token::Error => self.bad_symbol,
             _ => {
-                self.errors.push(Error::unexpected_token(token, span));
+                self.errors.push(
+                    Error::unexpected_token(token, span)
+                        .with_hint(format!("Expected an identifier")),
+                );
                 self.bad_symbol
             },
         };

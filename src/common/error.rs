@@ -71,8 +71,6 @@ impl Error {
         self
     }
 
-    // TODO
-    #[allow(dead_code)]
     pub fn with_hint(mut self, hint: String) -> Self {
         self.hints.push(hint);
         self
