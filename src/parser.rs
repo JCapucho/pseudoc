@@ -8,19 +8,13 @@ use crate::{
     },
     inference::{Inference, TypeData},
     lexer::{Lexer, Token},
+    ParseResult,
 };
 
 struct BlockContext<'function> {
     expressions: &'function mut ExprArena,
     locals: &'function mut Arena<Local>,
     scope: FastHashMap<Symbol, Handle<Local>>,
-}
-
-pub struct ParseResult {
-    pub name: Option<Ident>,
-    pub main_block: MainBlock,
-    pub items: Vec<Item>,
-    pub inference: Inference,
 }
 
 pub struct Parser<'source> {

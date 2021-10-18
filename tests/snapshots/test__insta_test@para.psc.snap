@@ -1,0 +1,30 @@
+---
+source: tests/test.rs
+expression: out
+input_file: tests/para.psc
+
+---
+Algoritmo test;
+Variável
+    a: real;
+Início
+    a 🠔 (1 + 2) / 2;
+Fim.
+
+Program test;
+Var
+    a: real;
+Begin
+    a := (1 + 2) / 2;
+End.
+
+digraph {
+start [shape=oval, label="Início"]
+end [shape=oval, label="Fim"]
+stmt_0_0 [label = "a = (1 + 2) / 2", shape=box]
+stmt_0_0 -> end
+
+start -> stmt_0_0
+}
+
+

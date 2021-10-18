@@ -6,7 +6,7 @@ use crate::{
         error::Error,
         BinaryOp, FastHashMap, Literal, PrimitiveType, Ty, UnaryOp,
     },
-    parser::ParseResult,
+    ParseResult,
 };
 use lasso::RodeoResolver;
 use std::io::Write;

@@ -1,0 +1,38 @@
+---
+source: tests/test.rs
+expression: out
+input_file: tests/simple.psc
+
+---
+Algoritmo soma;
+Variável
+    a, b, soma: inteiro;
+Início
+    a 🠔 3;
+    b 🠔 2;
+    soma 🠔 a + b;
+Fim.
+
+Program soma;
+Var
+    a, b, soma: integer;
+Begin
+    a := 3;
+    b := 2;
+    soma := a + b;
+End.
+
+digraph "soma" {
+start [shape=oval, label="Início"]
+end [shape=oval, label="Fim"]
+stmt_0_0 [label = "a = 3", shape=box]
+stmt_0_0 -> stmt_0_1
+stmt_0_1 [label = "b = 2", shape=box]
+stmt_0_1 -> stmt_0_2
+stmt_0_2 [label = "soma = a + b", shape=box]
+stmt_0_2 -> end
+
+start -> stmt_0_0
+}
+
+

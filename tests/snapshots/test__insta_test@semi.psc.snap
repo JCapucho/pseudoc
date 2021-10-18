@@ -1,0 +1,19 @@
+---
+source: tests/test.rs
+expression: errors
+input_file: tests/semi.psc
+
+---
+[
+    Error {
+        kind: UnexpectedToken(
+            Let,
+        ),
+        spans: [
+            26..29,
+        ],
+        hints: [
+            "Expected a SemiColon",
+        ],
+    },
+]

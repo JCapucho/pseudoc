@@ -1,0 +1,118 @@
+---
+source: tests/test.rs
+expression: out
+input_file: tests/test.psc
+
+---
+Algoritmo soma;
+Variável
+    a, b, total: inteiro;
+Início
+    Escrever("Inserir A");
+    Ler(a);
+    Escrever("Inserir B");
+    Ler(b);
+    total 🠔 a + b;
+    Escrever("A soma de a + b é ", total);
+    Se a = 1 Então
+        Escrever("A é igual a 1");
+    Senão Se a = 2 Então
+        Se true Então
+            Escrever("Obamaprisma");
+        FimSe;
+        Escrever("A é igual a 2");
+    Senão Se a = 3 Então
+        Escrever("A é igual a 3");
+    Senão
+        a 🠔 1;
+        Escrever("A é igual a 1 >:)");
+    FimSe;
+    Escrever("Podes ignorar isto");
+Fim.
+
+Program soma;
+Var
+    a, b, total: integer;
+Begin
+    Writeln('Inserir A');
+    Readln(a);
+    Writeln('Inserir B');
+    Readln(b);
+    total := a + b;
+    Writeln('A soma de a + b é ', total);
+    If a = 1 Then
+    Begin
+        Writeln('A é igual a 1');
+    End
+    Else If a = 2 Then
+    Begin
+        If true Then
+        Begin
+            Writeln('Obamaprisma');
+        End;
+        Writeln('A é igual a 2');
+    End
+    Else If a = 3 Then
+    Begin
+        Writeln('A é igual a 3');
+    End
+    Else
+    Begin
+        a := 1;
+        Writeln('A é igual a 1 >:)');
+    End;
+    Writeln('Podes ignorar isto');
+End.
+
+digraph "soma" {
+start [shape=oval, label="Início"]
+end [shape=oval, label="Fim"]
+stmt_0_0 [label = "Escrever(\"Inserir A\")", shape=parallelogram]
+stmt_0_0 -> stmt_0_1
+stmt_0_1 [label = "Ler(a)", shape=parallelogram]
+stmt_0_1 -> stmt_0_2
+stmt_0_2 [label = "Escrever(\"Inserir B\")", shape=parallelogram]
+stmt_0_2 -> stmt_0_3
+stmt_0_3 [label = "Ler(b)", shape=parallelogram]
+stmt_0_3 -> stmt_0_4
+stmt_0_4 [label = "total = a + b", shape=box]
+stmt_0_4 -> stmt_0_5
+stmt_0_5 [label = "Escrever(\"A soma de a + b é \", total)", shape=parallelogram]
+stmt_0_5 -> stmt_0_6
+stmt_0_6 [label = "a = 1", shape=diamond]
+stmt_1_0 [label = "Escrever(\"A é igual a 1\")", shape=parallelogram]
+stmt_1_0 -> stmt_0_7
+
+stmt_0_6 -> stmt_1_0 [label = "Se"]
+stmt_0_6_elif_0 [label = "a = 2", shape=diamond]
+stmt_2_0 [label = "true", shape=diamond]
+stmt_3_0 [label = "Escrever(\"Obamaprisma\")", shape=parallelogram]
+stmt_3_0 -> stmt_2_1
+
+stmt_2_0 -> stmt_3_0 [label = "Se"]
+
+stmt_2_0 -> stmt_2_1 [label = "Senão"]
+stmt_2_1 [label = "Escrever(\"A é igual a 2\")", shape=parallelogram]
+stmt_2_1 -> stmt_0_7
+
+stmt_0_6 -> stmt_0_6_elif_0 [label = "Senão"]
+stmt_0_6_elif_0 -> stmt_2_0 [label = "Se"]
+stmt_0_6_elif_1 [label = "a = 3", shape=diamond]
+stmt_5_0 [label = "Escrever(\"A é igual a 3\")", shape=parallelogram]
+stmt_5_0 -> stmt_0_7
+
+stmt_0_6_elif_0 -> stmt_0_6_elif_1 [label = "Senão"]
+stmt_0_6_elif_1 -> stmt_5_0 [label = "Se"]
+stmt_6_0 [label = "a 🠔 1", shape=box]
+stmt_6_0 -> stmt_6_1
+stmt_6_1 [label = "Escrever(\"A é igual a 1 >:)\")", shape=parallelogram]
+stmt_6_1 -> stmt_0_7
+
+stmt_0_6_elif_1 -> stmt_6_0 [label = "Senão"]
+stmt_0_7 [label = "Escrever(\"Podes ignorar isto\")", shape=parallelogram]
+stmt_0_7 -> end
+
+start -> stmt_0_0
+}
+
+

@@ -1,9 +1,3 @@
-mod backend;
-mod common;
-mod inference;
-mod lexer;
-mod parser;
-
 use argh::FromArgs;
 use codespan_reporting::{
     files::SimpleFiles,
@@ -28,6 +22,13 @@ struct Arguments {
     output: Option<PathBuf>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum Backend {
+    Pseudo,
+    Pascal,
+    Dot,
+}
+
 fn main() {
     let args: Arguments = argh::from_env();
     let input = std::fs::read_to_string(&args.input).expect("Failed to read the input file");
@@ -36,44 +37,12 @@ fn main() {
 
     let file_id = files.add(args.input.to_string_lossy(), &input);
 
-    let mut rodeo = common::Rodeo::with_hasher(Default::default());
-    let lexer = lexer::Lexer::with_extras(&input, &mut rodeo);
-    let parse = parser::Parser::new(lexer).parse();
-
-    let resolver = rodeo.into_resolver();
-
-    let parse_data = match parse {
-        Ok(items) => items,
-        Err(errors) => {
-            let writer = StandardStream::stderr(ColorChoice::Always);
-            let config = codespan_reporting::term::Config::default();
-
-            for err in errors {
-                term::emit(
-                    &mut writer.lock(),
-                    &config,
-                    &files,
-                    &err.codespan_diagnostic(file_id, &resolver),
-                )
-                .expect("Failed to output error");
-            }
-            return;
-        },
-    };
-
     let default_name = args
         .input
         .file_stem()
         .map(|val| val.to_string_lossy())
         .or_else(|| args.input.file_name().map(|val| val.to_string_lossy()))
         .unwrap_or_else(|| args.input.to_string_lossy());
-
-    #[derive(Debug, PartialEq, Eq)]
-    enum Backend {
-        Pseudo,
-        Pascal,
-        Dot,
-    }
 
     let backend = args
         .output
@@ -100,31 +69,20 @@ fn main() {
         None => &mut stdout,
     };
 
-    let result = match backend {
-        Backend::Pseudo => {
-            let config = backend::Config::default();
-            let mut backend =
-                backend::pseudo::PseudoBackend::new(&parse_data, &resolver, &config, sink);
-            backend.emit(&default_name)
-        },
-        Backend::Pascal => {
-            let config = backend::Config::pascal();
-            let mut backend =
-                backend::pseudo::PseudoBackend::new(&parse_data, &resolver, &config, sink);
-            backend.emit(&default_name)
-        },
-        Backend::Dot => {
-            let mut backend = backend::dot::DotBackend::new(&parse_data, &resolver, sink);
-            backend.emit()
-        },
-    };
+    let mut rodeo = pseudoc::new_rodeo();
+    let parse_result = pseudoc::build_parse(&input, &mut rodeo);
+    let resolver = rodeo.into_resolver();
+    let result = parse_result.and_then(|parse| match backend {
+        Backend::Pseudo => pseudoc::build_pseudo(&parse, &resolver, &default_name, sink),
+        Backend::Pascal => pseudoc::build_pascal(&parse, &resolver, &default_name, sink),
+        Backend::Dot => pseudoc::build_dot(&parse, &resolver, sink),
+    });
 
-    match result {
-        Ok(_) => {},
-        Err(err) => {
-            let writer = StandardStream::stderr(ColorChoice::Always);
-            let config = codespan_reporting::term::Config::default();
+    if let Err(errors) = result {
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = codespan_reporting::term::Config::default();
 
+        for err in errors {
             term::emit(
                 &mut writer.lock(),
                 &config,
@@ -132,6 +90,6 @@ fn main() {
                 &err.codespan_diagnostic(file_id, &resolver),
             )
             .expect("Failed to output error");
-        },
+        }
     }
 }
