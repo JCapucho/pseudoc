@@ -363,6 +363,7 @@ impl<'source> Parser<'source> {
             Token::OpenParentheses => {
                 let expr = self.expression(ctx, 0);
                 let ty = ctx.expressions.get_type(expr);
+                self.expect(Token::CloseParentheses);
                 (Expr::Parenthesized(expr), ty)
             },
             Token::In => {
