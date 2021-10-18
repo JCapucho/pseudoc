@@ -1,0 +1,38 @@
+* pseudoc
+
+  =pseudoc= is a project I made for school because we needed to write our programs in three
+  different formats: Pascal, pseudocode (similar in structure to pascal) and graphs.
+
+  The language is very rudimentary and the compiler full of bugs, some notable features are:
+  - Hand made parser
+  - Local type inference
+
+  There's a cli which has the following options
+
+  #+BEGIN_SRC sh
+  pseudoc <input> [<output>]
+  #+END_SRC
+
+  If no output is specified then pseudocode is printed to stdout, otherwise if the output file
+  has a =pas= extension pascal is produced, if the extension is =dot= the dot graphing language
+  is outputted, otherwise pseudocode is emitted.
+
+** Example
+
+  #+BEGIN_SRC rust
+  /* C style comments are supported */
+  program test; // Optional (taken from the file name if not present)
+
+  /* body is our program main block */
+  body {
+    // Variables need to be declared before usage
+    // A semicolon must be added to all statements
+    let a: int;
+    // pseudoc provides two builtin `In` (equivalent of pascal `readln`) and
+    // `Out` (equivalent of pascal `writeln`)
+    In(a);
+    // Types can be omitted and the compiler will try to infer them
+    let double = a * 2;
+    Out("The result of a*2 is ", double);
+  }
+  #+END_SRC
