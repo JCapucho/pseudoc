@@ -4,7 +4,7 @@ use crate::{
         arena::{Arena, Handle},
         ast::{Block, Expr, ExprArena, Intrisinc, Local, Stmt},
         error::Error,
-        BinaryOp, Literal, PrimitiveType, Ty, UnaryOp,
+        BinaryOp, FastHashMap, Literal, PrimitiveType, Ty, UnaryOp,
     },
     parser::ParseResult,
 };
@@ -24,6 +24,8 @@ pub struct PseudoBackend<'source, 'out, 'config> {
 
     config: &'config Config<'config>,
 
+    locals_accumulator: FastHashMap<Ty, Vec<Handle<Local>>>,
+
     indentation: usize,
     sink: &'out mut dyn Write,
 }
@@ -39,6 +41,10 @@ impl<'source, 'out, 'config> PseudoBackend<'source, 'out, 'config> {
             parse,
             resolver,
             config,
+            locals_accumulator: FastHashMap::with_capacity_and_hasher(
+                parse.main_block.locals.len(),
+                Default::default(),
+            ),
             indentation: 0,
             sink,
         }
@@ -59,11 +65,40 @@ impl<'source, 'out, 'config> PseudoBackend<'source, 'out, 'config> {
 
         if !self.parse.main_block.locals.is_empty() {
             writeln!(self.sink, "{}", self.config.variable)?;
-            for (_, local) in self.parse.main_block.locals.iter() {
-                let name = self.resolver.resolve(&local.ident);
-                write!(self.sink, "{}{}: ", IDENTATION, name)?;
+
+            self.locals_accumulator.clear();
+
+            for (handle, local) in self.parse.main_block.locals.iter() {
                 let ty = self.parse.inference.realize(local.ty)?;
-                self.emit_type(ty)?;
+                self.locals_accumulator.entry(ty).or_default().push(handle)
+            }
+
+            for (ty, locals) in self.locals_accumulator.iter() {
+                write!(self.sink, "{}", IDENTATION)?;
+
+                {
+                    let local = &self.parse.main_block.locals[locals[0]];
+                    let name = self.resolver.resolve(&local.ident);
+                    write!(self.sink, "{}", name)?;
+                }
+
+                for &handle in locals.iter().skip(1) {
+                    let local = &self.parse.main_block.locals[handle];
+                    let name = self.resolver.resolve(&local.ident);
+                    write!(self.sink, ", {}", name)?;
+                }
+
+                write!(self.sink, ": ")?;
+
+                match ty {
+                    Ty::Primitive(primitive) => write!(self.sink, "{}", match primitive {
+                        PrimitiveType::Int => self.config.int,
+                        PrimitiveType::Float => self.config.float,
+                        PrimitiveType::Bool => self.config.boolean,
+                        PrimitiveType::String => self.config.string,
+                    })?,
+                }
+
                 writeln!(self.sink, ";")?;
             }
         }
@@ -163,19 +198,6 @@ impl<'source, 'out, 'config> PseudoBackend<'source, 'out, 'config> {
         self.emit_block(ctx, block)?;
         write!(self.sink, "{}", IDENTATION.repeat(self.indentation))?;
         write!(self.sink, "{}", self.config.end)?;
-
-        Ok(())
-    }
-
-    fn emit_type(&mut self, ty: Ty) -> Result<(), Error> {
-        match ty {
-            Ty::Primitive(primitive) => write!(self.sink, "{}", match primitive {
-                PrimitiveType::Int => self.config.int,
-                PrimitiveType::Float => self.config.float,
-                PrimitiveType::Bool => self.config.boolean,
-                PrimitiveType::String => self.config.string,
-            })?,
-        }
 
         Ok(())
     }

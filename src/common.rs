@@ -145,7 +145,7 @@ impl fmt::Display for PrimitiveType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub enum Ty {
     Primitive(PrimitiveType),
 }
